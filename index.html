@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="utf-8">
+    <title>Gastos CdC</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" href="icon-192.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Gastos CdC">
+    <style>
+        :root { color-scheme: dark; }
+        html, body { margin: 0; height: 100%; background: #0f172a; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        #app { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: none;
+               padding-top: env(safe-area-inset-top); box-sizing: border-box; background: #0f172a; }
+        #splash, #setup { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: #e2e8f0; padding: 24px; box-sizing: border-box; text-align: center; }
+        #splash img { width: 88px; height: 88px; border-radius: 22px; }
+        #splash small { color: #64748b; }
+        .spin { width: 22px; height: 22px; border: 3px solid #334155; border-top-color: #f5b82e; border-radius: 50%; animation: s 0.8s linear infinite; }
+        @keyframes s { to { transform: rotate(360deg); } }
+        #setup { display: none; }
+        #setup input { width: 100%; max-width: 420px; padding: 14px; border-radius: 12px; border: 1px solid #334155; background: #020617; color: #fff; font-size: 14px; }
+        #setup button, .btn { padding: 14px 22px; border-radius: 12px; border: 0; background: #f5b82e; color: #0f172a; font-weight: 800; font-size: 15px; text-decoration: none; }
+        #setup p { color: #94a3b8; font-size: 13px; max-width: 420px; line-height: 1.5; margin: 0; }
+        #fallback { display: none; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <div id="splash">
+        <img src="icon-192.png" alt="">
+        <div class="spin"></div>
+        <small>A abrir…</small>
+        <div id="fallback">
+            <p style="color:#94a3b8;font-size:13px;max-width:320px">A demorar? Se a app pedir login ou não abrir aqui, abre-a no browser:</p>
+            <a id="fallbackLink" class="btn" href="#" target="_blank" rel="noopener">Abrir no browser</a>
+            <p style="margin-top:14px"><a href="#" onclick="resetUrl();return false" style="color:#64748b;font-size:12px">Mudar o link da app</a></p>
+        </div>
+    </div>
+
+    <div id="setup">
+        <img src="icon-192.png" alt="" style="width:72px;height:72px;border-radius:18px">
+        <h2 style="margin:0">Ligar à tua app</h2>
+        <p>Cola o link da Aplicação Web do Apps Script (termina em <b>/exec</b>). Só precisas de fazer isto uma vez.</p>
+        <input id="urlInput" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+        <button onclick="saveUrl()">Guardar e abrir</button>
+    </div>
+
+    <iframe id="app" title="Controlo de Gastos" allow="clipboard-write; fullscreen"></iframe>
+
+    <script>
+        // Opcional: cola aqui o link /exec para não teres de o colar no telemóvel
+        const APP_URL = '';
+
+        const KEY = 'cdc_app_url';
+        const $ = id => document.getElementById(id);
+        const store = {
+            get() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } },
+            set(v) { try { localStorage.setItem(KEY, v); } catch (e) {} },
+            del() { try { localStorage.removeItem(KEY); } catch (e) {} }
+        };
+
+        function isValid(u) { return /^https:\/\/script\.google\.com\/.+\/exec(\?.*)?$/.test(u.trim()); }
+
+        function openApp(url) {
+            $('setup').style.display = 'none';
+            $('splash').style.display = 'flex';
+            $('fallbackLink').href = url;
+            const frame = $('app');
+            frame.onload = () => { frame.style.display = 'block'; $('splash').style.display = 'none'; };
+            frame.src = url;
+            setTimeout(() => { if (frame.style.display !== 'block') $('fallback').style.display = 'block'; }, 8000);
+        }
+
+        function saveUrl() {
+            const u = $('urlInput').value.trim();
+            if (!isValid(u)) { alert('Esse link não parece o da Aplicação Web (deve começar por https://script.google.com/ e terminar em /exec).'); return; }
+            store.set(u);
+            openApp(u);
+        }
+
+        function resetUrl() {
+            store.del();
+            $('app').style.display = 'none';
+            $('splash').style.display = 'none';
+            $('setup').style.display = 'flex';
+        }
+
+        const fromQuery = new URLSearchParams(location.search).get('url');
+        if (fromQuery && isValid(fromQuery)) store.set(fromQuery);
+        const url = APP_URL || store.get();
+        if (url && isValid(url)) openApp(url); else resetUrl();
+
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+    </script>
+</body>
+</html>
